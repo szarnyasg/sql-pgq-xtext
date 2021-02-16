@@ -1,0 +1,29 @@
+Manifest-Version: 1.0
+Automatic-Module-Name: org.ldbcouncil.pgq
+Bundle-ManifestVersion: 2
+Bundle-Name: org.ldbcouncil.pgq
+Bundle-Vendor: My Company
+Bundle-Version: 1.0.0.qualifier
+Bundle-SymbolicName: org.ldbcouncil.pgq; singleton:=true
+Bundle-ActivationPolicy: lazy
+Require-Bundle: org.eclipse.xtext,
+ org.eclipse.xtext.xbase,
+ org.eclipse.equinox.common;bundle-version="3.5.0",
+ org.eclipse.emf.ecore,
+ org.eclipse.xtext.xbase.lib;bundle-version="2.14.0",
+ org.eclipse.xtext.util,
+ org.eclipse.emf.common,
+ org.antlr.runtime;bundle-version="[3.2.0,3.2.1)"
+Bundle-RequiredExecutionEnvironment: JavaSE-11
+Export-Package: org.ldbcouncil.pgq.sqlPgq,
+ org.ldbcouncil.pgq.validation,
+ org.ldbcouncil.pgq.scoping,
+ org.ldbcouncil.pgq.generator,
+ org.ldbcouncil.pgq.parser.antlr,
+ org.ldbcouncil.pgq.parser.antlr.internal,
+ org.ldbcouncil.pgq.sqlPgq.impl,
+ org.ldbcouncil.pgq.services,
+ org.ldbcouncil.pgq.serializer,
+ org.ldbcouncil.pgq,
+ org.ldbcouncil.pgq.sqlPgq.util
+Import-Package: org.apache.log4j
