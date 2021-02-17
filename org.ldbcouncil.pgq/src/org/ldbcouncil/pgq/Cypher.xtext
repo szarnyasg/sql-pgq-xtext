@@ -1,0 +1,506 @@
+grammar org.ldbcouncil.pgq.SqlPgq with org.eclipse.xtext.common.Terminals
+
+//grammar io.codekontor.opencypher.xtext.OpenCypher hidden(WS, ML_COMMENT, SL_COMMENT)
+//generate openCypher "http://www.codekontor.io/opencypher/xtext/OpenCypher"
+
+generate sqlPgq "http://www.ldbcouncil.org/pgq/SqlPgq"
+
+import "http://www.eclipse.org/emf/2002/Ecore" as ecore
+
+Cypher:
+	{Cypher} queryOptions=QueryOptions statement=Statement ';'?;
+
+QueryOptions:
+	{AllOptions} (explain?='EXPLAIN'? & profile?='PROFILE'? & cypherOption+=CypherOption*);
+
+CypherOption:
+	{CypherOption} 'CYPHER' (versionNumber=VersionNumber)? (configurationOption+=ConfigurationOption)*;
+
+VersionNumber:
+	versionNumber=Number;
+
+ConfigurationOption:
+	key=SYMBOLIC_NAME_X '=' value=SYMBOLIC_NAME_X;
+
+Statement:
+	Command | Query;
+
+Query:
+	RegularQuery | StandaloneCall | BulkImportQuery;
+
+RegularQuery:
+	SingleQuery ({CombinedQuery.singleQuery=current} (union+=Union)+)?;
+
+BulkImportQuery:
+	periodicCommitHint=PeriodicCommitHint loadCSVQuery=LoadCSVQuery;
+
+PeriodicCommitHint:
+	{PeriodicCommitHint} 'USING' 'PERIODIC' 'COMMIT' numberOfRowsPerCommit=DecimalInteger?;
+
+LoadCSVQuery:
+	loadCSV=LoadCSV singleQuery=SingleQuery;
+
+Union:
+	('UNION' all?='ALL'? singleQuery=SingleQuery);
+
+SingleQuery:
+	MultiPartQuery | SinglePartQuery;
+
+SinglePartQuery:
+	(readingClauses+=ReadingClause)* return=Return | 
+	(readingClauses+=ReadingClause)* (updatingClauses+=UpdatingClause)+ (return=Return)? ;
+
+MultiPartQuery:
+	(subQueries+=MultiPartSubQuery)+ singlePartQuery=SinglePartQuery;
+
+MultiPartSubQuery:
+	(readingClauses+=ReadingClause)* (updatingClauses+=UpdatingClause)* withPart=With;
+
+UpdatingClause:
+	Create | Merge | Foreach | Delete | Set | Remove;
+
+ReadingClause:
+	LoadCSV | Start | Match | Unwind | InQueryCall;
+
+Command:
+	CreateIndex | DropIndex | CreateUniqueConstraint | DropUniqueConstraint | CreateNodePropertyExistenceConstraint |
+	DropNodePropertyExistenceConstraint | CreateRelationshipPropertyExistenceConstraint |
+	DropRelationshipPropertyExistenceConstraint;
+
+CreateUniqueConstraint:
+	'CREATE' UniqueConstraint;
+
+CreateNodePropertyExistenceConstraint:
+	'CREATE' NodePropertyExistenceConstraint;
+
+CreateRelationshipPropertyExistenceConstraint:
+	'CREATE' RelationshipPropertyExistenceConstraint;
+
+CreateIndex:
+	'CREATE' index=Index;
+
+DropUniqueConstraint:
+	'DROP' uniqueConstraint=UniqueConstraint;
+
+DropNodePropertyExistenceConstraint:
+	'DROP' nodePropertyExistenceConstraint=NodePropertyExistenceConstraint;
+
+DropRelationshipPropertyExistenceConstraint:
+	'DROP' relationshipPropertyExistenceConstraint=RelationshipPropertyExistenceConstraint;
+
+DropIndex:
+	'DROP' index=Index;
+
+Index:
+	'INDEX' 'ON' nodeLabel=NodeLabel '(' propertyKeyName=PropertyKeyName ')';
+
+UniqueConstraint:
+	'CONSTRAINT' 'ON' '(' variable=VariableDeclaration nodeLabel=NodeLabel ')' 'ASSERT'
+	propertyExpression=PropertyExpression 'IS' 'UNIQUE';
+
+NodePropertyExistenceConstraint:
+	'CONSTRAINT' 'ON' '(' variable=VariableDeclaration nodeLabel=NodeLabel ')' 'ASSERT' 'EXISTS' '('
+	propertyExpression=PropertyExpression ')';
+
+RelationshipPropertyExistenceConstraint:
+	'CONSTRAINT' 'ON' relationshipPattern=RelationshipPatternSyntax 'ASSERT' 'EXISTS' '('
+	propertyExpression=PropertyExpression ')';
+
+RelationshipPatternSyntax:
+	('(' ')' incoming?=LeftArrowHead? Dash '[' variable=VariableDeclaration relType=RelType ']' Dash
+	outgoing?=RightArrowHead? '(' ')');
+
+LoadCSV:
+	{LoadCSV} 'LOAD' 'CSV' withHeaders?=LoadCSVWithHeaders? 'FROM' expression=Expression 'AS'
+	variable=VariableDeclaration ('FIELDTERMINATOR' fieldterminator=STRING_LITERAL)?;
+
+LoadCSVWithHeaders:
+	'WITH' 'HEADERS';
+
+Match:
+	optional?='OPTIONAL'? 'MATCH' pattern=Pattern (hints+=Hint)* where=Where?;
+
+Unwind:
+	'UNWIND' expression=Expression 'AS' variable=VariableDeclaration;
+
+Merge:
+	'MERGE' patternPart=PatternPart (mergeActions+=MergeAction)*;
+
+MergeAction:
+	'ON' action=('MATCH' | 'CREATE') set=Set;
+
+Create:
+	'CREATE' uniqueContraint?='UNIQUE'? pattern=Pattern;
+
+Set:
+	'SET' setItems+=SetItem (',' setItems+=SetItem)*;
+
+SetItem:
+	(propertyExpression=PropertyExpression '=' expression=Expression) | (variable=VariableDeclaration '='
+	expression=Expression) | (variable=VariableDeclaration '+=' expression=Expression) | (variable=VariableDeclaration
+	NodeLabels);
+
+Delete:
+	(detach?='DETACH')? 'DELETE' expressions+=Expression (',' expressions+=Expression)*;
+
+Remove:
+	'REMOVE' removeItems+=RemoveItem (',' removeItems+=RemoveItem)*;
+
+RemoveItem:
+	({RemoveItemLabel} variable=VariableDeclaration NodeLabels) | {RemoveItemProperty} propertyExpression=PropertyExpression;
+
+Foreach:
+	'FOREACH' '(' variable=VariableDeclaration 'IN' expression=Expression '|' (updatingClauses+=UpdatingClause)+ ')';
+
+InQueryCall:
+	'CALL' invocation=ExplicitProcedureInvocation ('YIELD' yieldItems=YieldItems)?;
+
+StandaloneCall:
+	'CALL' invocation=(ExplicitProcedureInvocation | ImplicitProcedureInvocation) ('YIELD' yieldItems=YieldItems)?;
+
+YieldItems:
+	{YieldItems} ((items+=YieldItem (',' items+=YieldItem)*) | '-');
+
+YieldItem:
+	(field=ProcedureResultField 'AS')? variable=VariableDeclaration;
+
+With:
+	'WITH' distint?='DISTINCT'? returnBody=ReturnBody where=Where?;
+
+Return:
+	(return='RETURN' distinct?='DISTINCT'? body=ReturnBody);
+
+ReturnBody:
+	returnItems=ReturnItems (order=Order)? (skip=Skip)? (limit=Limit)?;
+
+ReturnItems:
+	{ReturnItems} (all='*' (',' items+=ReturnItem)*) | (items+=ReturnItem (',' items+=ReturnItem)*);
+
+ReturnItem:
+	expression=Expression ('AS' alias=VariableDeclaration)?;
+
+Order:
+	'ORDER' 'BY' orderBy+=SortItem (',' orderBy+=SortItem)*;
+
+Skip:
+	'SKIP' skip=Expression;
+
+Limit:
+	'LIMIT' limit=Expression;
+
+SortItem:
+	(expression=Expression sort=('DESCENDING' | 'DESC' | 'ASCENDING' | 'ASC')?);
+
+Hint hidden():
+	{IndexHint} 'USING' WS 'INDEX' WS variable=VariableDeclaration nodeLabel=NodeLabel WS '('
+	propertyKeyName=PropertyKeyName ')' | {JoinHint} ('USING' WS 'JOIN' WS 'ON' variables+=VariableDeclaration (','
+	variables+=VariableDeclaration)*) | {ScanHint} ('USING' WS 'SCAN' WS variable=VariableDeclaration
+	nodeLabel=NodeLabel);
+
+Start:
+	'START' startPoint+=StartPoint (',' startPoint+=StartPoint)* where=Where?;
+
+StartPoint:
+	variable=VariableDeclaration '=' lookup=Lookup;
+
+Lookup:
+	NodeLookup | RelationshipLookup;
+
+NodeLookup:
+	'NODE' (IdentifiedIndexLookup | IndexQuery | IdLookup);
+
+RelationshipLookup:
+	('RELATIONSHIP' | 'REL') (IdentifiedIndexLookup | IndexQuery | IdLookup);
+
+IdentifiedIndexLookup:
+	':' indexName=SYMBOLIC_NAME_X '(' key=SYMBOLIC_NAME_X '=' (value=STRING_LITERAL | legacyParameter=LegacyParameter)
+	')';
+
+IndexQuery:
+	':' indexName=SYMBOLIC_NAME_X '(' (query=STRING_LITERAL | parameter=Parameter) ')';
+
+IdLookup:
+	'(' (ids=LiteralIds | legacyParameter=Parameter | wildcard='*') ')';
+
+LiteralIds:
+	ids+=DecimalInteger (',' ids+=DecimalInteger)*;
+
+Where:
+	'WHERE' expression=Expression;
+
+Pattern:
+	patterns+=PatternPart (',' patterns+=PatternPart)*;
+
+PatternPart:
+	(var=VariableDeclaration '=' part=AnonymousPatternPart) | AnonymousPatternPart;
+
+AnonymousPatternPart:
+	ShortestPathPattern | PatternElement;
+
+ShortestPathPattern:
+	{ShortestPath} 'SHORTESTPATH' '(' patternElement=PatternElement ')' | {AllShortestPaths} 'ALLSHORTESTPATHS' '('
+	patternElement=PatternElement ')';
+
+PatternElement:
+	(nodepattern=NodePattern (chain+=PatternElementChain)*) | '(' PatternElement ')';
+
+NodePattern:
+	{NodePattern} '(' variable=VariableDeclaration? NodeLabels? properties=Properties? ')';
+
+PatternElementChain:
+	relationshipPattern=RelationshipPattern nodePattern=NodePattern;
+
+RelationshipPattern:
+	{RelationshipPattern} (incoming?=LeftArrowHead? Dash detail=RelationshipDetail? Dash outgoing?=RightArrowHead?);
+
+RelationshipDetail:
+	{RelationshipDetail} '[' variable=VariableDeclaration? optional?='?'? RelationshipTypes? (range=RangeLiteral)?
+	properties=Properties? ']';
+
+Properties:
+	MapLiteral | Parameter | LegacyParameter;
+
+RelType:
+	':' RelTypeName;
+
+fragment RelationshipTypes:
+	':' relTypeNames+=RelTypeName ('|' ':'? relTypeNames+=RelTypeName)*;
+
+fragment NodeLabels:
+	nodeLabels+=NodeLabel+;
+
+NodeLabel:
+	':' labelName=LabelName;
+
+RangeLiteral:
+	{RangeLiteral} '*' (lower=Number? (variableLength?='..' upper=Number?)?)?;
+
+LabelName:
+/*
+ * oC_LabelName : oC_SchemaName ;
+ */
+// TODO
+	SYMBOLIC_NAME_X;
+
+RelTypeName:
+/*
+ * oC_RelTypeName : oC_SchemaName ;
+ */
+// TODO
+	SYMBOLIC_NAME_X;
+
+Expression:
+	OrExpression;
+
+OrExpression returns Expression:
+	XorExpression ({OrExpression.left=current} operator='OR' right=XorExpression)*;
+
+XorExpression returns Expression:
+	AndExpression ({XorExpression.left=current} operator='XOR' right=AndExpression)*;
+
+AndExpression returns Expression:
+	NotExpression ({AndExpression.left=current} operator='AND' right=NotExpression)*;
+
+NotExpression returns Expression:
+/*
+ * oC_NotExpression : ( NOT SP? )* oC_ComparisonExpression ;
+ * 
+ * Comment: Clause is modeled on the former antlr clause 'expression9 : ( sp NOT sp expression9 ) | expression8;'
+ * We should eventually adjust this...
+ */
+//TODO
+	({NotExpression} operator='NOT' left=NotExpression) | ComparisonExpression;
+
+ComparisonExpression returns Expression:
+	AddOrSubtractExpression ({ComparisonExpression.left=current} operator=('=' | '<>' | '<' | '>' | '<=' | '>=')
+	right=AddOrSubtractExpression)*;
+
+AddOrSubtractExpression returns Expression:
+	MultiplyDivideModuloExpression ({AddOrSubtractExpression.left=current} operator=('+' | '-')
+	right=MultiplyDivideModuloExpression)*;
+
+MultiplyDivideModuloExpression returns Expression:
+	PowerOfExpression ({MultiplyDivideModuloExpression.left=current} operator=('*' | '/' | '%') right=PowerOfExpression)*;
+
+PowerOfExpression returns Expression:
+	UnaryAddOrSubtractExpression ({PowerOfExpression.left=current} operator='^' right=UnaryAddOrSubtractExpression)*;
+
+UnaryAddOrSubtractExpression returns Expression:
+	StringListNullOperatorExpression | {UnaryAddOrSubtractExpression} operator=('+' | '-') left=UnaryAddOrSubtractExpression;
+
+StringListNullOperatorExpression returns Expression:
+	PropertyOrLabelsExpression ( {StringListNullOperatorExpression.left=current } expressions+=( StringOperatorExpression | ListOperatorExpression | NullOperatorExpression) )*;
+
+ListOperatorExpression returns Expression:
+  	( {IndexLookupExpression} '[' expression=Expression ']') |
+	( {IndexRangeExpression} '[' (lower=Expression)? '..' (upper=Expression)? ']')
+;
+	
+StringOperatorExpression returns Expression:
+	( ( {RegExpMatchingExpression} '=~' ) |
+	  ( {InCollectionExpression} 'IN' ) | 
+	  ( {StartsWithExpression} 'STARTS' 'WITH' ) | 
+	  ( {EndsWithExpression} 'ENDS' 'WITH' ) |
+	  ( {ContainsExpression} 'CONTAINS' ) )
+	right=PropertyOrLabelsExpression 
+;
+
+NullOperatorExpression returns Expression:
+	( {IsNullExpression} 'IS' 'NULL') | 
+	( {IsNotNullExpression} 'IS' 'NOT' 'NULL')	
+;
+
+
+PropertyOrLabelsExpression returns Expression:
+	Atom ({PropertyLookupExpression.left=current} propertyLookups+=PropertyLookup+)?
+	     ({NodeLabelsExpression.left=current} NodeLabels)?
+	;
+
+Atom returns Expression:
+	Literal | Parameter | LegacyParameter | CaseExpression | {Count} 'COUNT' '(' '*' ')' | ListComprehension |
+	PatternComprehension | {Filter} 'FILTER' '(' filterExpression=FilterExpression ')' | {Extract} 'EXTRACT' '('
+	filterExpression=FilterExpression ('|' expression=Expression)? ')' | Reduce | {All} 'ALL' '('
+	filterExpression=FilterExpression ')' | {Any} 'ANY' '(' filterExpression=FilterExpression ')' | {None} 'NONE' '('
+	filterExpression=FilterExpression ')' | {Single} 'SINGLE' '(' filterExpression=FilterExpression ')' |
+	ShortestPathPattern | RelationshipsPattern | ParenthesizedExpression | FunctionInvocation |
+	// TODO 
+	{VariableRef} variableRef=[VariableDeclaration|SYMBOLIC_NAME_X];
+
+Literal:
+	NumberLiteral | StringLiteral | {NULL} 'NULL' | BooleanLiteral | MapLiteral | ListLiteral;
+
+BooleanLiteral:
+	{BooleanLiteral} value=('TRUE' | 'FALSE');
+
+ListLiteral:
+	{ListLiteral} '[' (expressions+=Expression (',' expressions+=Expression)*)? ']';
+
+Reduce:
+	'REDUCE' '(' accumulator=VariableDeclaration '=' accumulatorExpression=Expression ',' idInColl=IdInColl '|'
+	expression=Expression ')';
+
+ParenthesizedExpression:
+	'(' expression=Expression ')';
+
+RelationshipsPattern:
+	nodePattern=NodePattern (chain+=PatternElementChain)+;
+
+FilterExpression:
+	idInColl=IdInColl (where=Where)?;
+
+IdInColl:
+	variable=VariableDeclaration 'IN' expression=Expression;
+
+FunctionInvocation:
+	functionName=FunctionName '(' distinct?='DISTINCT'? (parameter+=Expression (',' parameter+=Expression)*)? ')';
+
+FunctionName:
+	SYMBOLIC_NAME_X;
+
+ExplicitProcedureInvocation:
+	procedureName=ProcedureName '(' (parameter+=Expression (',' parameter+=Expression)*)? ')';
+
+ImplicitProcedureInvocation:
+	{ImplicitProcedureInvocation} procedureName=ProcedureName;
+
+ProcedureResultField:
+	SYMBOLIC_NAME_X;
+
+ProcedureName:
+	namespace=Namespace name=SYMBOLIC_NAME_X;
+
+Namespace:
+	(SYMBOLIC_NAME_X '.')*;
+
+ListComprehension:
+	'[' filterExpression=FilterExpression ('|' expression=Expression)? ']';
+
+PatternComprehension:
+	'[' (pathVariable=VariableDeclaration '=')? pattern=RelationshipsPattern (where=Where)? '|' expression=Expression
+	']';
+
+PropertyLookup:
+	'.' (propertyKeyName=PropertyKeyName propertyOperator=('?' | '!') | propertyKeyName=PropertyKeyName);
+
+CaseExpression:
+	(('CASE' (caseAlternatives+=CaseAlternatives)+) | ('CASE' caseExpression=Expression
+	(caseAlternatives+=CaseAlternatives)+)) ('ELSE' elseExpression=Expression)? 'END';
+
+CaseAlternatives:
+	'WHEN' when=Expression 'THEN' then=Expression;
+
+VariableDeclaration returns VariableDeclaration:
+	{VariableDeclaration} name=SYMBOLIC_NAME_X;
+
+StringLiteral:
+	value=STRING_LITERAL;
+
+NumberLiteral:
+	value=Number;
+
+MapLiteral:
+	{MapLiteral} '{' (entries+=MapLiteralEntry (',' entries+=MapLiteralEntry)*)? '}';
+
+MapLiteralEntry:
+	key=PropertyKeyName ':' value=Expression;
+
+LegacyParameter:
+	'{' parameter=(SYMBOLIC_NAME_X | Number) '}';
+
+Parameter:
+	'$' parameter=(SYMBOLIC_NAME_X | Number);
+
+PropertyExpression:
+	Atom (propertyLookups+=PropertyLookup)+;
+
+PropertyKeyName:
+	SYMBOLIC_NAME_X;
+
+LeftArrowHead:
+	'<';
+
+RightArrowHead:
+	'>';
+
+Dash:
+	'-';
+
+DecimalInteger:
+	{DecimalInteger} value=Number;
+
+Number hidden():
+	HEX | (INT | DECIMAL) ('.' (INT | DECIMAL))?;
+
+SYMBOLIC_NAME_X:
+	ID | 'CYPHER' | 'EXPLAIN' | 'PROFILE' | 'USING' | 'PERIODIC' | 'COMMIT' | 'UNION' | 'ALL' | 'CREATE' | 'INDEX' | 'ON'
+	| 'DROP' | 'CONSTRAINT' | 'ASSERT' | 'IS' | 'UNIQUE' | 'EXISTS' | 'LOAD' | 'CSV' | 'WITH' | 'HEADERS' | 'FROM' | 'AS'
+	| 'FIELDTERMINATOR' | 'OPTIONAL' | 'MATCH' | 'UNWIND' | 'MERGE' | 'SET' | 'DELETE' | 'DETACH' | 'REMOVE' | 'FOREACH'
+	| 'IN' | 'DISTINCT' | 'RETURN' | 'ORDER' | 'BY' | 'SKIP' | 'LIMIT' | 'DESCENDING' | 'DESC' | 'ASCENDING' | 'ASC' |
+	'JOIN' | 'SCAN' | 'START' | 'NODE' | 'RELATIONSHIP' | 'REL' | 'WHERE' | 'SHORTESTPATH' | 'ALLSHORTESTPATHS' | 'OR' |
+	'XOR' | 'AND' | 'NOT' | 'STARTS' | 'ENDS' | 'CONTAINS' | 'NULL' | 'TRUE' | 'FALSE' | 'COUNT' | 'FILTER' | 'EXTRACT' |
+	'ANY' | 'NONE' | 'SINGLE' | 'REDUCE' | 'CASE' | 'ELSE' | 'END' | 'WHEN' | 'THEN';
+
+terminal ID:
+	('a'..'z' | 'A'..'Z' | '_') ('a'..'z' | 'A'..'Z' | '_' | '0'..'9')* | ('`'->'`');
+
+terminal ML_COMMENT:
+	'/*'->'*/';
+
+terminal SL_COMMENT:
+	'//' !('\n' | '\r')* ('\r'? '\n')?;
+
+terminal WS:
+	(' ' | '\t' | '\r' | '\n')+;
+
+terminal STRING_LITERAL:
+	'"' ('\\' . /* 'b'|'t'|'n'|'f'|'r'|'u'|'"'|"'"|'\\' */ | !('\\' | '"'))* '"' | "'" ('\\' .
+	/* 'b'|'t'|'n'|'f'|'r'|'u'|'"'|"'"|'\\' */ | !('\\' | "'"))* "'";
+
+terminal HEX:
+	('0x' | '0X') ('0'..'9' | 'A'..'F')+;
+
+terminal INT returns ecore::EInt:
+	'0'..'9' ('0'..'9')*;
+
+terminal DECIMAL:
+	INT (('e') ('+' | '-')? INT)?;

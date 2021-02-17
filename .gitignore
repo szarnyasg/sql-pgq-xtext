@@ -78,3 +78,5 @@ xtend-gen/
 *.xml_gen
 
 # End of https://www.toptal.com/developers/gitignore/api/xtext,eclipse
+
+*.xtendbin
