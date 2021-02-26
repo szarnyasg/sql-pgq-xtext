@@ -5,15 +5,116 @@ generate sqlPgq "http://www.ldbcouncil.org/pgq/SqlPgq"
 import "http://www.eclipse.org/emf/2002/Ecore" as ecore
 
 Query:
-	SelectQuery |
-	CreatePropertyGraph;
+	SelectQuery | CreatePropertyGraph
+	';'?
+	;
 
 SelectQuery:
 	'SELECT'
+	'FROM' GraphTable
 ;
 
+
+// FROM GRAPH_TABLE
+
+GraphTable:
+	'GRAPH_TABLE'
+	'('
+		ID ',' GraphPattern
+		'COLUMNS' '(' GraphTableColumnDefinitionList ')'
+	')'
+	;
+
+
+GraphTableColumnDefinitionList:
+	GraphTableColumnDefinition (',' GraphTableColumnDefinition)*;
+
+GraphTableColumnDefinition:
+	ID ('AS' ID)?;
+
+
+
+
+GraphPattern:
+	'MATCH' PathPatternList
+//	GraphPatternWhereClauseOptional
+	;
+
+//GraphPatternWhereClauseOptional:
+//	'WHERE' a_expr
+//	;
+
+PathPatternList:
+	(PathPatternNameOptional PathConcatenation)+;
+
+//Identifier is a Path Name.
+PathPatternNameOptional:
+	(ID 'AS')?;
+
+PathConcatenation:
+	ElementPattern+;
+
+ElementPattern:
+	VertexPattern | EdgePattern;
+
+VertexPattern:
+	'(' GraphPatternVariableDeclarationOptional IsLabelExpressionOptional ')';
+
+//Ident is a graph pattern variable
+GraphPatternVariableDeclarationOptional:
+	ID?;
+
+//Ident is a label name 
+IsLabelExpressionOptional:
+	(IsOrColon ID)?;
+
+MandatoryEdgePatternFiller:
+	GraphPatternVariableDeclaration IsLabelExpressionOptional
+	| IsOrColon ID
+	;
+
+IsOrColon:
+	'IS' | ':';
+	
+GraphPatternVariableDeclaration:
+	ID;
+
+EdgePattern:
+	FullEdgePattern
+	| AbbreviatedEdgePattern
+	;
+
+FullEdgePattern:
+	FullEdgePointingRight
+	| FullEdgePointingLeft
+	| FullEdgeAnyDirection
+	;
+
+FullEdgePointingRight:
+	'-[' GraphPatternVariableDeclarationOptional ']->'
+	| '-' MandatoryEdgePatternFiller '->'
+	;
+
+FullEdgePointingLeft:
+	'<-[' GraphPatternVariableDeclarationOptional ']-'
+	| '<-' MandatoryEdgePatternFiller '-'
+	;
+
+FullEdgeAnyDirection:
+	'-[' GraphPatternVariableDeclarationOptional ']-'
+	| '-' MandatoryEdgePatternFiller '-'
+	;
+
+AbbreviatedEdgePattern:
+	'->' | '<-'	| '-';
+
+
+
+
+// CREATE PROPERTY GRAPH
+
 CreatePropertyGraph:
-	'CREATE' 'PROPERTY' 'GRAPH' name=ID PropertyGraphContent ';'?;
+	'CREATE' 'PROPERTY' 'GRAPH' name=ID PropertyGraphContent;
 
 // [!] Change: We require the VertexTablesClause to be filled
 PropertyGraphContent:
@@ -22,6 +123,7 @@ PropertyGraphContent:
 VertexTablesClause:
 	Vertex 'TABLES' '(' VertexTableDefinitionList ')';
 
+// TODO: use '+'
 VertexTableDefinitionList:
 	VertexTableDefinition (',' VertexTableDefinition)*;
 
