@@ -58,24 +58,21 @@ ElementPattern:
 	VertexPattern | EdgePattern;
 
 VertexPattern:
-	'(' GraphPatternVariableDeclarationOptional IsLabelExpressionOptional ')';
+	'(' GraphPatternVariableDeclaration? IsLabelExpression?')';
 
-//Ident is a graph pattern variable
-GraphPatternVariableDeclarationOptional:
-	ID?;
+IsLabelExpression:
+	IsOrColon ID?;
 
-//Ident is a label name 
-IsLabelExpressionOptional:
-	(IsOrColon ID)?;
+EdgePatternFiller:
+	GraphPatternVariableDeclaration? IsLabelExpression?
+
+;
 
 MandatoryEdgePatternFiller:
-	GraphPatternVariableDeclaration IsLabelExpressionOptional
-	| IsOrColon ID
+	GraphPatternVariableDeclaration IsLabelExpression?
+	| IsLabelExpression
 	;
 
-IsOrColon:
-	'IS' | ':';
-	
 GraphPatternVariableDeclaration:
 	ID;
 
@@ -91,17 +88,17 @@ FullEdgePattern:
 	;
 
 FullEdgePointingRight:
-	'-[' GraphPatternVariableDeclarationOptional ']->'
+	'-[' EdgePatternFiller ']->'
 	| '-' MandatoryEdgePatternFiller '->'
 	;
 
 FullEdgePointingLeft:
-	'<-[' GraphPatternVariableDeclarationOptional ']-'
+	'<-[' EdgePatternFiller ']-'
 	| '<-' MandatoryEdgePatternFiller '-'
 	;
 
 FullEdgeAnyDirection:
-	'-[' GraphPatternVariableDeclarationOptional ']-'
+	'-[' EdgePatternFiller ']-'
 	| '-' MandatoryEdgePatternFiller '-'
 	;
 
@@ -123,7 +120,6 @@ PropertyGraphContent:
 VertexTablesClause:
 	Vertex 'TABLES' '(' VertexTableDefinitionList ')';
 
-// TODO: use '+'
 VertexTableDefinitionList:
 	VertexTableDefinition (',' VertexTableDefinition)*;
 
@@ -167,7 +163,7 @@ LabelList:
 // aliases
 Vertex: 'VERTEX' | 'NODE';
 Edge: 'EDGE' | 'RELATIONSHIP';
-
+IsOrColon: 'IS' | ':';
 
 
 //SYMBOLIC_NAME_X:
