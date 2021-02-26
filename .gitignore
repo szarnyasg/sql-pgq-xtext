@@ -79,4 +79,5 @@ generated/
 
 # End of https://www.toptal.com/developers/gitignore/api/xtext,eclipse
 
+test-bin/
 *.xtendbin
