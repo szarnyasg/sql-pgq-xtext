@@ -4,6 +4,9 @@ generate sqlPgq "http://www.ldbcouncil.org/pgq/SqlPgq"
 
 import "http://www.eclipse.org/emf/2002/Ecore" as ecore
 
+// Comments on the spec:
+// - <vertical bar>, <ampersand>, and <exclamation mark> are not defined
+
 Query:
 	(SelectQuery | CreatePropertyGraph)
 	';'?
@@ -14,8 +17,9 @@ SelectQuery:
 	'FROM' GraphTable
 ;
 
-
-// FROM GRAPH_TABLE
+// ----------------------------------------------------------------------
+//                              GRAPH_TABLE
+// ----------------------------------------------------------------------
 
 GraphTable:
 	'GRAPH_TABLE'
@@ -25,37 +29,64 @@ GraphTable:
 	')'
 	;
 
-
 GraphTableColumnDefinitionList:
 	GraphTableColumnDefinition (',' GraphTableColumnDefinition)*;
 
 GraphTableColumnDefinition:
 	ID ('AS' ID)?;
 
-
-
-
 GraphPattern:
 	'MATCH' PathPatternList
-//	GraphPatternWhereClauseOptional
+	('WHERE')? // optional WHERE CLAUSE, incomplete in the current grammar
 	;
 
-//GraphPatternWhereClauseOptional:
-//	'WHERE' a_expr
-//	;
+ParenthesizedPathPatternExpression:
+	  '(' PathPatternExpression ParenthesizedPathPatternWhereClause? ')'
+	| '[' PathPatternExpression ParenthesizedPathPatternWhereClause? ']'
+	;
+
+ParenthesizedPathPatternWhereClause:
+	'WHERE'; // <search condition>
 
 PathPatternList:
-	(PathPatternNameOptional PathConcatenation)+;
+	PathPattern (',' PathPattern)*;
 
-//Identifier is a Path Name.
-PathPatternNameOptional:
-	(ID 'AS')?;
+PathPattern:
+	(ID 'AS')? PathPatternExpression;
 
-PathConcatenation:
-	ElementPattern+;
+
+// Rewritten to avoid ANTLR errors. Was originally:
+//
+// <path pattern expression> ::=
+//     <path term>
+//   | <path multiset alternation>
+//   | <path set disjunction>
+PathPatternExpression:
+	PathTerm
+	(PathMultisetAlternation | PathSetDisjunction)?
+	;
+
+PathMultisetAlternation:
+	('|+|' PathTerm)+;
+
+PathSetDisjunction:
+	('|' PathTerm)+;
+
+// eliminate left recursion from PathTerm and PathConcatenation:
+PathTerm:
+	PathFactor+;
+
+// collapse QuantifiedPathPrimary rule into PathFactor 
+PathFactor:
+	PathPrimary GraphPatternQuantifier?;
+
+PathPrimary:
+	  ElementPattern
+	| ParenthesizedPathPatternExpression;
 
 ElementPattern:
-	VertexPattern | EdgePattern;
+	  VertexPattern
+	| EdgePattern;
 
 VertexPattern:
 	'(' GraphPatternVariableDeclaration? IsLabelExpression?')';
@@ -65,11 +96,10 @@ IsLabelExpression:
 
 EdgePatternFiller:
 	GraphPatternVariableDeclaration? IsLabelExpression?
-
 ;
 
 MandatoryEdgePatternFiller:
-	GraphPatternVariableDeclaration IsLabelExpression?
+	  GraphPatternVariableDeclaration IsLabelExpression?
 	| IsLabelExpression
 	;
 
@@ -77,38 +107,51 @@ GraphPatternVariableDeclaration:
 	ID;
 
 EdgePattern:
-	FullEdgePattern
+	  FullEdgePattern
 	| AbbreviatedEdgePattern
 	;
 
 FullEdgePattern:
-	FullEdgePointingRight
+	  FullEdgePointingRight
 	| FullEdgePointingLeft
 	| FullEdgeAnyDirection
 	;
 
 FullEdgePointingRight:
-	'-[' EdgePatternFiller ']->'
+	  '-[' EdgePatternFiller ']->'
 	| '-' MandatoryEdgePatternFiller '->'
 	;
 
 FullEdgePointingLeft:
-	'<-[' EdgePatternFiller ']-'
+	  '<-[' EdgePatternFiller ']-'
 	| '<-' MandatoryEdgePatternFiller '-'
 	;
 
 FullEdgeAnyDirection:
-	'-[' EdgePatternFiller ']-'
+	  '-[' EdgePatternFiller ']-'
 	| '-' MandatoryEdgePatternFiller '-'
 	;
 
 AbbreviatedEdgePattern:
 	'->' | '<-'	| '-';
 
+GraphPatternQuantifier:
+	  '*'
+	| '+'
+	| '?'
+	| FixedQuantifier
+	| GeneralQuantifier
+	;
 
+FixedQuantifier:
+	'{' INT '}';
 
+GeneralQuantifier:
+	'{' INT? ',' INT? '}';
 
-// CREATE PROPERTY GRAPH
+// ----------------------------------------------------------------------
+//                        CREATE PROPERTY GRAPH
+// ----------------------------------------------------------------------
 
 CreatePropertyGraph:
 	'CREATE' 'PROPERTY' 'GRAPH' name=ID PropertyGraphContent;
@@ -160,20 +203,17 @@ GraphTableKeyClause:
 LabelList:
 	('LABEL' ID)+ | 'LABEL' 'DEFAULT';
 
-// aliases
+// ----------------------------------------------------------------------
+//                                aliases  
+// ----------------------------------------------------------------------
+
 Vertex: 'VERTEX' | 'NODE';
 Edge: 'EDGE' | 'RELATIONSHIP';
 IsOrColon: 'IS' | ':';
 
-
-//SYMBOLIC_NAME_X:
-//	ID | 'CYPHER' | 'EXPLAIN' | 'PROFILE' | 'USING' | 'PERIODIC' | 'COMMIT' | 'UNION' | 'ALL' | 'CREATE' | 'INDEX' | 'ON'
-//	| 'DROP' | 'CONSTRAINT' | 'ASSERT' | 'IS' | 'UNIQUE' | 'EXISTS' | 'LOAD' | 'CSV' | 'WITH' | 'HEADERS' | 'FROM' | 'AS'
-//	| 'FIELDTERMINATOR' | 'OPTIONAL' | 'MATCH' | 'UNWIND' | 'MERGE' | 'SET' | 'DELETE' | 'DETACH' | 'REMOVE' | 'FOREACH'
-//	| 'IN' | 'DISTINCT' | 'RETURN' | 'ORDER' | 'BY' | 'SKIP' | 'LIMIT' | 'DESCENDING' | 'DESC' | 'ASCENDING' | 'ASC' |
-//	'JOIN' | 'SCAN' | 'START' | 'NODE' | 'RELATIONSHIP' | 'REL' | 'WHERE' | 'SHORTESTPATH' | 'ALLSHORTESTPATHS' | 'OR' |
-//	'XOR' | 'AND' | 'NOT' | 'STARTS' | 'ENDS' | 'CONTAINS' | 'NULL' | 'TRUE' | 'FALSE' | 'COUNT' | 'FILTER' | 'EXTRACT' |
-//	'ANY' | 'NONE' | 'SINGLE' | 'REDUCE' | 'CASE' | 'ELSE' | 'END' | 'WHEN' | 'THEN';
+// ----------------------------------------------------------------------
+//                            terminal symbols
+// ----------------------------------------------------------------------
 
 terminal ID:
 	('a'..'z' | 'A'..'Z' | '_') ('a'..'z' | 'A'..'Z' | '_' | '0'..'9')* | ('`'->'`');
@@ -195,8 +235,7 @@ terminal HEX:
 	('0x' | '0X') ('0'..'9' | 'A'..'F')+;
 
 terminal INT returns ecore::EInt:
-	'0'..'9' ('0'..'9')*;
+	'0'..'9'+;
 
 terminal DECIMAL:
 	INT (('e') ('+' | '-')? INT)?;
-	
