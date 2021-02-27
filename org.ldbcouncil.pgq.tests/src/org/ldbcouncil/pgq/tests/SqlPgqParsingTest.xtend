@@ -10,13 +10,13 @@ import org.eclipse.xtext.testing.util.ParseHelper
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.^extension.ExtendWith
-import org.ldbcouncil.pgq.sqlPgq.Model
+import org.ldbcouncil.pgq.sqlPgq.Query
 
 @ExtendWith(InjectionExtension)
 @InjectWith(SqlPgqInjectorProvider)
 class SqlPgqParsingTest {
 	@Inject
-	ParseHelper<Model> parseHelper
+	ParseHelper<Query> parseHelper
 	
 	@Test
 	def void loadModel() {
